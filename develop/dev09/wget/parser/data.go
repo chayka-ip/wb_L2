@@ -50,6 +50,15 @@ func (p *LinkContainer) add(d LinkItem) {
 	p.Data = append(p.Data, d)
 }
 
+func (p *LinkContainer) isPage(i int) bool {
+	for _, v := range p.PageLinksInd {
+		if v == i {
+			return true
+		}
+	}
+	return false
+}
+
 //GetDataAsStringSlice ...
 func (p *LinkContainer) GetDataAsStringSlice() []string {
 	out := []string{}
@@ -114,7 +123,7 @@ func (p *LinkContainer) removeImproperLinks() {
 
 func (p *LinkContainer) searchPageAndResourceLinks() {
 	for i, v := range p.Data {
-		if HasExtension(v.Link) {
+		if HasResourceExtension(v.Link) {
 			p.ResourceLinksInd = append(p.ResourceLinksInd, i)
 			continue
 		}

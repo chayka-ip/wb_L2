@@ -28,5 +28,5 @@ func makeURLFromTypedString(rawURL, schema, host, downloadDir string, urlType pa
 }
 
 func logDownload(url string, size int) {
-	fmt.Printf("Got file size of %d bytes from %s\n", size, url)
+	fmt.Printf("Got %d bytes from %s\n", size, url)
 }

@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-//HasExtension
-func HasExtension(s string) bool {
+//HasResourceExtension ...
+func HasResourceExtension(s string) bool {
 	p := strings.Split(s, slash)
 	lastEl := p[len(p)-1]
 	if strings.Contains(lastEl, dot) {
@@ -28,8 +28,9 @@ func linkToLocalResourceLinks(rawURL, host, rootDir string, urlType URLType) str
 			u += strings.Join(p[1:], "")
 		}
 	case URLTypeRelative:
+		host = strings.TrimRight(host, slash)
 		rawURL = strings.TrimLeft(rawURL, slash)
-		u += fmt.Sprintf("%s%s", host, rawURL)
+		u += fmt.Sprintf("%s/%s", host, rawURL)
 	case URLTypeThisOtherDomainNoSchema:
 		rawURL = strings.TrimLeft(rawURL, slash)
 		u += rawURL
@@ -87,7 +88,6 @@ func resourceLinkToLocalRelative(targetPath, resourcePath string) (string, error
 	rs := strings.TrimLeft(resourcePath, common)
 
 	b := strings.Builder{}
-	b.Grow(2 * relDir)
 	for i := 0; i < relDir; i++ {
 		b.WriteString(relativeDirPlaceHolder)
 		b.WriteString(slash)
@@ -139,17 +139,26 @@ func overrideBytes(src []byte, data []byte, startPos int, byteDelta int) ([]byte
 
 //convertLinksToRelative tries to find corresponding file and modify links if it was found
 //pageDirectory is path to directory where file to replace link is stored
-func convertLinksToRelative(p *LinkContainer, pageDir, host, rootDir string) {
+func convertLinksToRelative(p *LinkContainer, pageDir, host, rootDir, pageSuffix string) {
 	byteOffset := 0
 
 	md := make([]LinkItem, 0, len(p.Data))
 
-	for _, v := range p.Data {
+	for i, v := range p.Data {
 		v.ByteStartPos += byteOffset
 
 		resourceLink := linkToLocalResourceLinks(v.Link, host, rootDir, v.URLType)
+		hasResourceFile := hasResource(resourceLink)
+		if !hasResourceFile && p.isPage(i) {
+			// try find page with ext
+			r := resourceLink + pageSuffix
+			hasResourceFile = hasResource(r)
+			if hasResourceFile {
+				resourceLink = r
+			}
+		}
 
-		if hasResource(resourceLink) {
+		if hasResourceFile {
 			modifiedLink, err := resourceLinkToLocalRelative(pageDir, resourceLink)
 			if err != nil {
 				md = append(md, v)
@@ -184,7 +193,7 @@ func overrideLinks(p *LinkContainer, src []byte) ([]byte, error) {
 }
 
 //ConvertLinksInFileToRelative overrides provided file with relative links
-func ConvertLinksInFileToRelative(p LinkContainer, filePath, host string) error {
+func ConvertLinksInFileToRelative(p LinkContainer, filePath, host, pageSuffix string) error {
 	parts := strings.Split(filePath, slash)
 	if len(parts) == 0 {
 		return errors.New("invalid file path")
@@ -192,7 +201,7 @@ func ConvertLinksInFileToRelative(p LinkContainer, filePath, host string) error 
 	rootDir := parts[0]
 	pathToFileDir := strings.Join(parts[:len(parts)-1], slash)
 
-	convertLinksToRelative(&p, pathToFileDir, host, rootDir)
+	convertLinksToRelative(&p, pathToFileDir, host, rootDir, pageSuffix)
 	fData, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -209,24 +218,4 @@ func ConvertLinksInFileToRelative(p LinkContainer, filePath, host string) error 
 	}
 
 	return nil
-}
-
-//AddSuffixToPageLinks ...
-func AddSuffixToPageLinks(p *LinkContainer, suffix string) {
-	d := make([]LinkItem, 0, len(p.Data))
-
-	pageIndices := make(map[int]struct{}, len(p.PageLinksInd))
-	for _, ind := range p.PageLinksInd {
-		pageIndices[ind] = struct{}{}
-	}
-
-	for i, v := range p.Data {
-		if _, has := pageIndices[i]; has {
-			if !strings.HasSuffix(v.Link, suffix) {
-				v.Link += suffix
-			}
-		}
-		d = append(d, v)
-	}
-	p.Data = d
 }

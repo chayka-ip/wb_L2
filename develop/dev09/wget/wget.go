@@ -10,8 +10,18 @@ import (
 )
 
 const (
-	htmlExt = ".html"
+	pageSuffix = ".html"
 )
+
+type pages struct {
+	urls []*ResourceURL
+}
+
+func newPages() *pages {
+	return &pages{
+		make([]*ResourceURL, 0),
+	}
+}
 
 //ExecuteCLI ...
 func ExecuteCLI(args []string) int {
@@ -21,7 +31,7 @@ func ExecuteCLI(args []string) int {
 		return 2
 	}
 
-	if parser.HasExtension(opt.url.AbsoluteURL) {
+	if parser.HasResourceExtension(opt.url.AbsoluteURL) {
 		if _, err := downloadResource(opt.url); err != nil {
 			fmt.Println(err)
 			return 1
@@ -29,16 +39,23 @@ func ExecuteCLI(args []string) int {
 		return 0
 	}
 
-	if err := downloadPage(opt, opt.url, 0); err != nil {
+	pages := newPages()
+
+	if err := downloadPage(opt, pages, opt.url, 0); err != nil {
 		fmt.Println(err)
 		return 1
 	}
+
+	convertLinksInPages(pages)
+	fmt.Println("===== DONE =====")
 	return 0
 }
 
-func downloadPage(opt *options, url *ResourceURL, currentDepth int) error {
-	if !strings.HasSuffix(url.ResourceFullPath, htmlExt) {
-		url.ResourceFullPath += htmlExt
+func downloadPage(opt *options, pages *pages, url *ResourceURL, currentDepth int) error {
+	pages.urls = append(pages.urls, url)
+	url.ResourceFullPath = strings.TrimRight(url.ResourceFullPath, slash)
+	if !strings.HasSuffix(url.ResourceFullPath, pageSuffix) {
+		url.ResourceFullPath += pageSuffix
 	}
 
 	body, err := downloadResource(url)
@@ -49,16 +66,26 @@ func downloadPage(opt *options, url *ResourceURL, currentDepth int) error {
 	s := string(body)
 	linkContainer := parser.ExtractLinksFromString(s)
 
+	getURLS := func(p []parser.LinkItem) <-chan *ResourceURL {
+		ch := make(chan *ResourceURL)
+		go func() {
+			for _, v := range p {
+				rURL, err := makeURLFromTypedString(v.Link, url.Schema, url.Host, opt.downloadDir, v.URLType)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				ch <- rURL
+			}
+			close(ch)
+		}()
+		return ch
+	}
+
 	// download resources
 	if opt.prerequesits {
-		resourceLinks := linkContainer.GetResourceLinks()
-		for _, v := range resourceLinks {
-			rURL, err := makeURLFromTypedString(v.Link, url.Schema, url.Host, opt.downloadDir, v.URLType)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			_, err = downloadResource(rURL)
+		for v := range getURLS(linkContainer.GetResourceLinks()) {
+			_, err = downloadResource(v)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -67,25 +94,14 @@ func downloadPage(opt *options, url *ResourceURL, currentDepth int) error {
 
 	// download pages
 	if currentDepth < opt.depth {
-		pageLinks := linkContainer.GetPageLinks()
-		for _, v := range pageLinks {
-			rURL, err := makeURLFromTypedString(v.Link, url.Schema, url.Host, opt.downloadDir, v.URLType)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			err = downloadPage(opt, rURL, currentDepth+1)
+		for v := range getURLS(linkContainer.GetPageLinks()) {
+			err = downloadPage(opt, pages, v, currentDepth+1)
 			if err != nil {
 				fmt.Println(err)
 			}
 		}
-		parser.AddSuffixToPageLinks(linkContainer, htmlExt)
 	}
 
-	err = parser.ConvertLinksInFileToRelative(*linkContainer, url.ResourceFullPath, url.Host)
-	if err != nil {
-		fmt.Println(err)
-	}
 	return nil
 }
 
@@ -114,4 +130,19 @@ func downloadResource(url *ResourceURL) ([]byte, error) {
 
 	logDownload(url.AbsoluteURL, len(body))
 	return body, nil
+}
+
+func convertLinksInPages(pages *pages) {
+	for _, url := range pages.urls {
+		data, err := os.ReadFile(url.ResourceFullPath)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		linkContainer := parser.ExtractLinksFromString(string(data))
+		err = parser.ConvertLinksInFileToRelative(*linkContainer, url.ResourceFullPath, url.Host, pageSuffix)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }

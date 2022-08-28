@@ -1,6 +1,7 @@
 package wget
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -34,6 +35,10 @@ func NewResourceURL(absURL, downloadDir string) (*ResourceURL, error) {
 
 	uAbs := b.String()
 	sParts := strings.Split(absURL, "://")
+	if len(sParts) < 2 {
+		return nil, errors.New("url is invalid")
+	}
+
 	schema := sParts[0]
 	urlNoSchema := strings.Split(absURL, "://")[1]
 	rFullPath := fmt.Sprintf("%s/%s", downloadDir, urlNoSchema)
@@ -51,26 +56,3 @@ func NewResourceURL(absURL, downloadDir string) (*ResourceURL, error) {
 	}
 	return u, nil
 }
-
-// //GetClearHost ... returns host without tail slash
-// func (url *ResourceURL) GetClearHost() string {
-// 	return strings.Split(url.Host, slash)[0]
-// }
-
-// //GetFullPathToResource ...
-// func (url *ResourceURL) GetFullPathToResource() string {
-// 	return joinPathURL(url.Host, url.PathToResource)
-// }
-
-// //GetFullPath ...
-// func (url *ResourceURL) GetFullPath() string {
-// 	return url.Host + url.Path
-// }
-
-// func getResourceNameAndPathToResource(url *url.URL) (string, string) {
-// 	p := strings.Split(url.Path, slash)
-// 	name := p[len(p)-1]
-// 	path := strings.Split(url.Path, slash+name)[0]
-// 	path = strings.TrimLeft(path, slash)
-// 	return name, path
-// }
