@@ -8,10 +8,14 @@ import (
 type URLType uint8
 
 const (
-	URLTypeAbsolute                URLType = 0
-	URLTypeRelative                URLType = 1
+	//URLTypeAbsolute ...
+	URLTypeAbsolute URLType = 0
+	//URLTypeRelative ...
+	URLTypeRelative URLType = 1
+	//URLTypeThisOtherDomainNoSchema ...
 	URLTypeThisOtherDomainNoSchema URLType = 2
-	URLTypeUnknown                 URLType = 255
+	//URLTypeUnknown ...
+	URLTypeUnknown URLType = 255
 )
 
 //LinkItem ...
