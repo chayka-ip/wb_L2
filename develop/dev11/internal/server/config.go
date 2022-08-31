@@ -4,7 +4,7 @@ package server
 type Config struct {
 	Host           string `toml:"host"`
 	Port           string `toml:"port"`
-	CacheSizeBytes uint64 `toml:"cahe_size_bytes"`
+	CacheSizeBytes uint64 `toml:"cache_size_bytes"`
 	DiskvDir       string `toml:"diskv_dir"`
 }
 
