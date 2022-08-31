@@ -1,4 +1,4 @@
 host = "localhost"
 port = "8080"
-cahe_size_bytes = 1048576
+cache_size_bytes = 1048576
 diskv_dir = "db_dir"
